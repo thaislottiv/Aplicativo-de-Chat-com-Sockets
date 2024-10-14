@@ -1,0 +1,57 @@
+package com.thaislotti.chat;
+
+import java.io.*;
+import java.net.*;
+import java.util.Scanner;
+
+public class ChatCliente {
+    private Socket socket;
+    private PrintWriter out;
+    private BufferedReader in;
+
+    public ChatCliente(String serverAddress) throws IOException {
+        // Conecta ao servidor
+        socket = new Socket(serverAddress, 12345);
+        out = new PrintWriter(socket.getOutputStream(), true);
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+        
+        // Cria uma thread para ouvir as mensagens do servidor
+        new Thread(new LeitorMensagem()).start();
+        
+        // Permite que o usuário envie mensagens
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Conectado ao chat! Digite suas mensagens:");
+
+        while (scanner.hasNextLine()) {
+            out.println(scanner.nextLine());
+        }
+    }
+
+    private class LeitorMensagem implements Runnable {
+        public void run() {
+            try {
+                String mensagem;
+                while ((mensagem = in.readLine()) != null) {
+                    System.out.println(mensagem);
+                }
+            } catch (IOException e) {
+                System.out.println("Erro ao ler mensagem: " + e.getMessage());
+            } finally {
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+
+    public static void main(String[] args) throws IOException {
+        // Pega o endereço do servidor como argumento
+        if (args.length != 1) {
+            System.out.println("Uso: java ChatCliente <endereco-servidor>");
+            return;
+        }
+        new ChatCliente(args[0]);
+    }
+}

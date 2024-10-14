@@ -1,0 +1,72 @@
+package com.thaislotti.chat;
+
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class ChatServidor {
+    private static Set<PrintWriter> clientes = new HashSet<>();
+
+    public static void main(String[] args) throws IOException {
+        System.out.println("Servidor de chat iniciado...");
+        ServerSocket listener = new ServerSocket(12345);
+
+        try {
+            while (true) {
+                // Aceita novas conexões e cria uma thread para lidar com cada cliente
+                new ManejadorCliente(listener.accept()).start();
+            }
+        } finally {
+            listener.close();
+        }
+    }
+
+    private static class ManejadorCliente extends Thread {
+        private Socket socket;
+        private PrintWriter out;
+        private BufferedReader in;
+
+        public ManejadorCliente(Socket socket) {
+            this.socket = socket;
+        }
+
+        public void run() {
+            try {
+                // Configura o leitor e o escritor para o cliente
+                in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
+                out = new PrintWriter(socket.getOutputStream(), true);
+
+                // Adiciona o cliente à lista de clientes conectados
+                synchronized (clientes) {
+                    clientes.add(out);
+                }
+
+                // Lê as mensagens do cliente e retransmite para todos os outros clientes
+                String mensagem;
+                while ((mensagem = in.readLine()) != null) {
+                    System.out.println("Mensagem recebida: " + mensagem);
+                    // Envia a mensagem para todos os clientes conectados
+                    synchronized (clientes) {
+                        for (PrintWriter cliente : clientes) {
+                            cliente.println(mensagem);
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.out.println("Erro ao lidar com cliente: " + e.getMessage());
+            } finally {
+                // Remove o cliente da lista ao desconectar
+                if (out != null) {
+                    synchronized (clientes) {
+                        clientes.remove(out);
+                    }
+                }
+                try {
+                    socket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+    }
+}
